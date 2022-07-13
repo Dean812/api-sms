@@ -1,6 +1,7 @@
 package fr.orsys.groupe1.sms;
 
 import java.io.BufferedReader;
+import java.io.DataOutputStream;
 import java.io.IOException;
 import java.io.InputStreamReader;
 import java.io.UnsupportedEncodingException;
@@ -36,26 +37,36 @@ public class App
     
   
     
+    private static void sendSms() {
+    	// les 4 prochaines lignes ont des chiffres qui changes au quotidien
+        String AK = "a38e0bd7725e20b2"; // donné perso from OVH
+        String AS = "d303ba5f92c1badb40eab91cc7bdf822";
+        String CK = "8b635dd7c4c2dcc2cb7586f4090c37da";   
 
-    private static void sendSms()
-    {
-        String AK = "your_app_key";
-        String AS = "your_app_secret";
-        String CK = "your_consumer_key";
-
-        String ServiceName = "sms-xx000000-1";
+        String ServiceName = "sms-cf678891-1";
         String METHOD = "POST";
-        try {
-            URL    QUERY  = new URL("https://eu.api.ovh.com/1.0/sms/"+ServiceName+"/jobs");
-            String BODY   = "{\"receivers\":[\"+33612345678\"],\"message\":\"Test SMS OVH\",\"priority\":\"high\",\"senderForResponse\":true}";
-
-            long TSTAMP  = new Date().getTime()/1000;
+        try {    // créé la requete qui dit , on veut envoyer un sms
+        	URL    QUERY  = new URL("https://eu.api.ovh.com/1.0/sms/"+ServiceName+"/jobs"); // sur quelle URL
+//        	String BODY   = "{\"receivers\":[\"+33783593603\"],\"message\":\"Send from Project\",\"priority\":\"high\",\"senderForResponse\":true}";
+//        				numéro du destinataire    ▲  c'est le Json            ▲ contenu du message
+     
+        	// ▼ remplacement du BODY via le mapper et la class message
+        	ObjectMapper objectMapper = new ObjectMapper();  
+        	Message message = new Message();
+        	message.setContenu("Test one two three");
+        	message.setLstDestinataires(Arrays.asList("+33783593603")); // list car on peut avir plusieurs 
+        	message.setPriorite("high");
+        	message.setAutoriseReponse(true);
+        	String BODY = objectMapper.writeValueAsString(message); // << jackson serialise l'instane du message
+        	System.out.println(BODY);
+        	long TSTAMP  = new Date().getTime()/1000;
 
             //Création de la signature
             String toSign    = AS + "+" + CK + "+" + METHOD + "+" + QUERY + "+" + BODY + "+" + TSTAMP;
             String signature = "$1$" + HashSHA1(toSign);
             System.out.println(signature);
 
+//            on va mettre les informations dans le corp de la requete, below 
             HttpURLConnection req = (HttpURLConnection)QUERY.openConnection();
             req.setRequestMethod(METHOD);
             req.setRequestProperty("Content-Type",      "application/json");
@@ -63,16 +74,16 @@ public class App
             req.setRequestProperty("X-Ovh-Consumer",    CK);
             req.setRequestProperty("X-Ovh-Signature",   signature);
             req.setRequestProperty("X-Ovh-Timestamp",   "" + TSTAMP);
-
-            if(!BODY.isEmpty())
-            {
+            //x-ovh-   gère la sécurité en fonction
+            
+            if (!BODY.isEmpty()) {
                 req.setDoOutput(true);
                 DataOutputStream wr = new DataOutputStream(req.getOutputStream());
                 wr.writeBytes(BODY);
                 wr.flush();
                 wr.close();
             }
-
+            
             String inputLine;
             BufferedReader in;
             int responseCode = req.getResponseCode();
@@ -92,7 +103,7 @@ public class App
             }
             in.close();
 
-            //Affichage du résultat     
+            //Affichage du résultat
             System.out.println(response.toString());
 
         } catch (MalformedURLException e) {
